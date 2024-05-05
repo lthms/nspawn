@@ -5,7 +5,7 @@ pkgver=1
 pkgrel=1
 pkgdesc='Helper to create systemd-nspawn containers'
 url=https://github.com/lthms/nspawn
-license=('MPL-2')
+license=('MPL-2.0')
 arch=('x86_64')
 depends=(
   'systemd'
