@@ -1,5 +1,8 @@
 #!/usr/bin/zsh
 
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2024 Thomas Letan <lthms@soap.coffee>
+
 TASK=""
 
 function start_task () {

@@ -1,5 +1,8 @@
 #!/usr/bin/bash
 
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2024 Thomas Letan <lthms@soap.coffee>
+
 chsh -s /bin/zsh
 usermod -a -G wheel lthms
 systemctl enable --now systemd-networkd
