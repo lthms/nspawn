@@ -1,0 +1,18 @@
+pkgbase = nspawn
+	pkgdesc = Helper to create systemd-nspawn containers
+	pkgver = 1
+	pkgrel = 1
+	url = https://github.com/lthms/nspawn
+	arch = x86_64
+	license = MPL-2
+	depends = systemd
+	source = nspawn.zsh
+	source = init.sh
+	source = nspawn.template
+	source = zshprofile.template
+	sha256sums = d42963dcfecee4c0f99addd8faf1204afbd490dee89cbae3844bba526f7b3b2a
+	sha256sums = a82e3d3ad2c8f9865e993a52118b2365062d084ff5cd8d66a894ec18f51862fc
+	sha256sums = be87f50e86d6b2ae9db8317b2c04b3086fa1694787edb13a68c4163d3d38f4c0
+	sha256sums = 9d33ade41b246cad8d03458f97e3f64694cd615cbf19b80340e06e483614766f
+
+pkgname = nspawn
