@@ -1,7 +1,7 @@
 # Maintainer: Thomas Letan <lthms@soap.coffee>
 
 pkgname=nspawn
-pkgver=1
+pkgver=2
 pkgrel=1
 pkgdesc='Helper to create systemd-nspawn containers'
 url=https://github.com/lthms/nspawn
@@ -16,9 +16,9 @@ source=(
   'nspawn.template'
   'zshprofile.template'
 )
-sha256sums=('d42963dcfecee4c0f99addd8faf1204afbd490dee89cbae3844bba526f7b3b2a'
-            'a82e3d3ad2c8f9865e993a52118b2365062d084ff5cd8d66a894ec18f51862fc'
-            'be87f50e86d6b2ae9db8317b2c04b3086fa1694787edb13a68c4163d3d38f4c0'
+sha256sums=('94c85cc47e07e8cd2820aaac9ca0be30c5a3b12eff84dbf50a66eb38f489f471'
+            '0ef333429fc826bc47fc634902cd9495e2386b6976b2aa85a14b945cf0cb213c'
+            'b092fc3300e6e85fa1be743701423b4c12b4f2d906850bfb3316b48cd414ff94'
             '9d33ade41b246cad8d03458f97e3f64694cd615cbf19b80340e06e483614766f')
 
 package() {

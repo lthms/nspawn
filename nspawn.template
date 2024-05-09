@@ -9,6 +9,6 @@ Zone=%ZONE%
 BindReadOnly=/etc/ssh/ssh_host_ed25519_key:/etc/ssh/ssh_host_ed25519_key:rootidmap
 BindReadOnly=/etc/ssh/ssh_host_ed25519_key.pub:/etc/ssh/ssh_host_ed25519_key.pub:rootidmap
 BindReadOnly=/etc/zsh/zshrc:/etc/zsh/zshrc:rootidmap
-BindReadOnly=/etc/xdg/nvim/sysinit.vim:/etc/xdg/nvim/sysinit.vim:rootidmap
+BindReadOnly=/usr/share/vim/vimfiles:/usr/share/vim/vimfiles:rootidmap
 BindUser=lthms
 PrivateUsersOwnership=chown
