@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2024 Thomas Letan <lthms@soap.coffee>
 
+PROC_NAME="$0"
+
 TASK=""
 
 function start_task () {
@@ -16,7 +18,17 @@ function stop_task () {
   TASK=""
 }
 
-function sanity_check () {
+function usage () {
+  echo "usage: ${PROC_NAME} create <NAME>"
+  echo "       ${PROC_NAME} update"
+  exit 1
+}
+
+function machines () {
+  machinectl list --output=json | jq 'map(.machine) | .[]' --raw-output
+}
+
+function create_sanity_check () {
   local name="${1}"
 
   if [ -d "/var/lib/machines/${name}" ]; then
@@ -28,7 +40,9 @@ function sanity_check () {
     echo "/etc/systemd/nspawn/${name}.nspawn already exists" 
     exit 3
   fi
+}
 
+function root_sanity_check () {
   if [ "$(whoami)" != "root" ]; then
     echo "not running as root"
     exit 4
@@ -137,10 +151,30 @@ function init_container () {
   stop_task
 }
 
-function main () {
+function update_machine () {
+  local machine="${1}"
+  local stdout="$(mktemp)"
+  local stderr="$(mktemp)"
+
+  start_task "update ${machine}"
+  machinectl shell "${machine}" /usr/bin/pacman -Syyu --noconfirm \
+    > "${stdout}" 2> "${stderr}"
+  if [ "$?" != "0" ]; then
+    echo "----[stdout]----\n$(cat ${stdout})"
+    echo "----[stderr]----\n$(cat ${stderr})"
+  fi
+
+  rm "${stdout}" "${stderr}"
+  stop_task
+}
+
+# Subcommands ----
+
+function create () {
   local name="${1}"
 
-  sanity_check "${name}"
+  root_sanity_check
+  create_sanity_check "${name}"
   pick_color
 
   mkdir_container "${name}"
@@ -154,9 +188,36 @@ function main () {
   init_container "${name}"
 }
 
-if [ "$#" -ne 1 ]; then
-	echo "usage: $0 MACHINE_NAME"
-	exit 1
+function update () {
+  root_sanity_check
+
+  for machine in $(machines); do
+    update_machine "${machine}"
+  done
+}
+
+# Main
+
+if [ "$#" -eq 0 ]; then
+  usage
 fi
 
-main "${1}"
+case $1 in
+  create)
+    if [ "$#" -ne 2 ]; then
+      usage
+    fi
+
+    create "$2"
+    ;;
+  update)
+    if [ "$#" -ne 1 ]; then
+      usage
+    fi
+
+    update
+    ;;
+  *)
+    usage
+    ;;
+esac
