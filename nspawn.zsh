@@ -19,8 +19,9 @@ function stop_task () {
 }
 
 function usage () {
-  echo "usage: ${PROC_NAME} create <NAME>"
+  echo "usage: ${PROC_NAME} create NAME"
   echo "       ${PROC_NAME} update"
+  echo "       ${PROC_NAME} destroy NAME"
   exit 1
 }
 
@@ -42,11 +43,33 @@ function create_sanity_check () {
   fi
 }
 
+function destroy_sanity_check () {
+  local name="${1}"
+
+  if [ ! -d "/var/lib/machines/${name}" ]; then
+    echo "/var/lib/machines/${name} does not exist"
+    exit 2
+  fi
+}
+
 function root_sanity_check () {
   if [ "$(whoami)" != "root" ]; then
     echo "not running as root"
     exit 4
   fi
+}
+
+function ask_confirmation () {
+  local msg="${1}"
+  local reply="n"
+
+  read -q "reply? ${msg} (y/N) "
+
+  if [ "${reply}" != "y" ] && [ "${reply}" != "Y" ]; then
+    exit 6
+  fi
+
+  echo ""
 }
 
 COLOR=""
@@ -168,6 +191,23 @@ function update_machine () {
   stop_task
 }
 
+function stop_machine () {
+  local machine="${1}"
+
+  start_task "stop ${machine}"
+  machinectl poweroff "${machine}" > /dev/null 2> /dev/null
+  while $(machinectl status "${machine}" > /dev/null 2> /dev/null); do done
+  stop_task
+}
+
+function disable_machine () {
+  local machine="${1}"
+
+  start_task "disable ${machine} if needed"
+  machinectl disable "${machine}" > /dev/null 2> /dev/null
+  stop_task
+}
+
 # Subcommands ----
 
 function create () {
@@ -196,6 +236,30 @@ function update () {
   done
 }
 
+function destroy () {
+  local name="${1}"
+
+  root_sanity_check
+  destroy_sanity_check "${name}"
+
+  ask_confirmation "Are you sure you want to destroy ${name}?"
+
+  stop_machine "${name}"
+  disable_machine "${name}"
+
+  start_task "delete machine image"
+  rm -r "/var/lib/machines/${name}"
+  stop_task
+
+  start_task "delete machine configuration"
+  rm -f "/etc/systemd/nspawn/${name}.nspawn"
+  stop_task
+
+  start_task "delete machine control configuration"
+  rm -rf "/etc/systemd/system.control/systemd-nspawn@${name}.service.d/"
+  stop_task
+}
+
 # Main
 
 if [ "$#" -eq 0 ]; then
@@ -216,6 +280,13 @@ case $1 in
     fi
 
     update
+    ;;
+  destroy)
+    if [ "$#" -ne 2 ]; then
+      usage
+    fi
+
+    destroy "$2"
     ;;
   *)
     usage
