@@ -148,10 +148,10 @@ function install_init_script () {
   stop_task
 }
 
-function start_container () {
+function start_machine () {
   local name="${1}"
 
-  start_task "start container"
+  start_task "start ${name}"
   machinectl -q start ${name}
   stop_task
 }
@@ -224,7 +224,7 @@ function create () {
   install_nspawn_file "${name}"
   install_init_script "${name}"
 
-  start_container "${name}"
+  start_machine "${name}"
   init_container "${name}"
 }
 
@@ -233,6 +233,8 @@ function update () {
 
   for machine in $(machines); do
     update_machine "${machine}"
+    stop_machine "${machine}"
+    start_machine "${machine}"
   done
 }
 
