@@ -18,6 +18,11 @@ function stop_task () {
   TASK=""
 }
 
+function fail_task () {
+  print -P "\r[%F{red}-%f] ${TASK}"
+  TASK=""
+}
+
 function usage () {
   echo "usage: ${PROC_NAME} create NAME"
   echo "       ${PROC_NAME} update"
@@ -41,6 +46,15 @@ function create_sanity_check () {
     echo "/etc/systemd/nspawn/${name}.nspawn already exists" 
     exit 3
   fi
+}
+
+function update_machine_sanity_check () {
+ local machine="${1}"
+
+ if [ -d "/var/lib/machines/.${machine}.b" ]; then
+   echo "/var/lib/machines/.${machine}.b already exists: remove it to update ${machine}"
+   exit 6
+ fi
 }
 
 function destroy_sanity_check () {
@@ -70,6 +84,10 @@ function ask_confirmation () {
   fi
 
   echo ""
+}
+
+function machines_dir_fs () {
+  stat -f --format='%T' /var/lib/machines
 }
 
 COLOR=""
@@ -106,19 +124,64 @@ function install_zshprofile_file () {
 
 function mkdir_machine () {
   local name="${1}"
-  local fs="$(stat -f --format='%T' /var/lib/machines)"
 
   start_task "init machine directory"
   
-  case "${fs}" in
+  case "$(machines_dir_fs)" in
     "btrfs")
       btrfs -q subvolume create "/var/lib/machines/${name}"
       ;;
     *)
       mkdir -p "/var/lib/machines/${name}"
+      ;;
   esac
 
   stop_task
+}
+
+function snapshot_machine () {
+  local name="${1}"
+
+  case "$(machines_dir_fs)" in
+    "btrfs")
+      stop_machine "${name}"
+
+      start_task "create snapshot for ${name}"
+      btrfs -q subvolume snapshot "/var/lib/machines/${name}" "/var/lib/machines/.${name}.b"
+      stop_task
+
+      start_machine "${name}"
+      ;;
+    *)
+      ;;
+  esac
+}
+
+function discard_snapshot_machine () {
+  local name="${1}"
+
+  if [ -d "/var/lib/machines/.${name}.b" ]; then
+    # We assume we are under a btrfs filesystem because the snapshot directory exists
+    start_task "discard ${name}’s snapshot"
+    btrfs -q subvolume delete "/var/lib/machines/.${name}.b"
+    stop_task
+  fi
+}
+
+function restore_snapshot_machine () {
+  local name="${1}"
+
+  if [ -d "/var/lib/machines/.${name}.b" ]; then
+    # We assume we are under a btrfs filesystem because the snapshot directory exists
+    stop_machine "${name}"
+
+    start_task "restore ${name}’s snapshot"
+    rm -r "/var/lib/machines/${name}"
+    mv "/var/lib/machines/.${name}.b" "/var/lib/machines/${name}"
+    stop_task
+
+    start_machine "${name}"
+  fi
 }
 
 function install_machine_system () {
@@ -132,12 +195,16 @@ function install_machine_system () {
     > "${stdout}" 2> "${stderr}"
 
   if [ "$?" != "0" ]; then
+    fail_task
     echo "----[stdout]----\n$(cat ${stdout})"
     echo "----[stderr]----\n$(cat ${stderr})"
+    rm "${stdout}" "${stderr}"
+    rm -rf /var/lib/machines/${name}/
+  else
+    rm "${stdout}" "${stderr}"
+    stop_task
   fi
 
-  rm "${stdout}" "${stderr}"
-  stop_task
 }
 
 function install_init_script () {
@@ -153,6 +220,7 @@ function start_machine () {
 
   start_task "start ${name}"
   machinectl -q start ${name}
+  until $(machinectl status "${name}" > /dev/null 2> /dev/null); do done
   stop_task
 }
 
@@ -166,12 +234,15 @@ function init_machine () {
     > "${stdout}" 2> "${stderr}"
 
   if [ "$?" != "0" ]; then
+    fail_task
     echo "----[stdout]----\n$(cat ${stdout})"
     echo "----[stderr]----\n$(cat ${stderr})"
+    rm "${stdout}" "${stderr}"
+  else
+    rm "${stdout}" "${stderr}"
+    stop_task
   fi
 
-  rm "${stdout}" "${stderr}"
-  stop_task
 }
 
 function update_machine () {
@@ -179,16 +250,25 @@ function update_machine () {
   local stdout="$(mktemp)"
   local stderr="$(mktemp)"
 
+  snapshot_machine "${machine}"
+
   start_task "update ${machine}"
   machinectl shell "${machine}" /usr/bin/pacman -Syyu --noconfirm \
     > "${stdout}" 2> "${stderr}"
+
   if [ "$?" != "0" ]; then
+    fail_task
     echo "----[stdout]----\n$(cat ${stdout})"
     echo "----[stderr]----\n$(cat ${stderr})"
-  fi
+    rm "${stdout}" "${stderr}"
 
-  rm "${stdout}" "${stderr}"
-  stop_task
+    restore_snapshot_machine "${machine}"
+  else
+    rm "${stdout}" "${stderr}"
+    stop_task
+
+    discard_snapshot_machine "${machine}"
+  fi
 }
 
 function stop_machine () {
@@ -197,6 +277,7 @@ function stop_machine () {
   start_task "stop ${machine}"
   machinectl poweroff "${machine}" > /dev/null 2> /dev/null
   while $(machinectl status "${machine}" > /dev/null 2> /dev/null); do done
+  while [ -d "/var/lib/machines/.#${machine}.lck" ]; do done
   stop_task
 }
 
@@ -232,7 +313,12 @@ function update () {
   root_sanity_check
 
   for machine in $(machines); do
+    echo ""
+
+    update_machine_sanity_check "${machine}"
+
     update_machine "${machine}"
+
     stop_machine "${machine}"
     start_machine "${machine}"
   done
