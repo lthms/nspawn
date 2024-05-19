@@ -104,11 +104,11 @@ function install_zshprofile_file () {
   stop_task
 }
 
-function mkdir_container () {
+function mkdir_machine () {
   local name="${1}"
   local fs="$(stat -f --format='%T' /var/lib/machines)"
 
-  start_task "init container directory"
+  start_task "init machine directory"
   
   case "${fs}" in
     "btrfs")
@@ -121,12 +121,12 @@ function mkdir_container () {
   stop_task
 }
 
-function install_container_system () {
+function install_machine_system () {
   local name="${1}"
   local stdout="$(mktemp)"
   local stderr="$(mktemp)"
 
-  start_task "install container system"
+  start_task "install machine system"
   pacstrap -K -c "/var/lib/machines/${name}/" \
     base sudo openssh neovim zsh kitty-terminfo \
     > "${stdout}" 2> "${stderr}"
@@ -156,12 +156,12 @@ function start_machine () {
   stop_task
 }
 
-function init_container () {
+function init_machine () {
   local name="${1}"
   local stdout="$(mktemp)"
   local stderr="$(mktemp)"
 
-  start_task "configure container"
+  start_task "configure machine"
   machinectl shell "${name}" /usr/bin/bash -c "/usr/local/bin/init.sh && rm /usr/local/bin/init.sh" \
     > "${stdout}" 2> "${stderr}"
 
@@ -217,15 +217,15 @@ function create () {
   create_sanity_check "${name}"
   pick_color
 
-  mkdir_container "${name}"
+  mkdir_machine "${name}"
 
-  install_container_system "${name}"
+  install_machine_system "${name}"
   install_zshprofile_file "${name}"
   install_nspawn_file "${name}"
   install_init_script "${name}"
 
   start_machine "${name}"
-  init_container "${name}"
+  init_machine "${name}"
 }
 
 function update () {
